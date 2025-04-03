@@ -16,6 +16,7 @@
 	let alertMessage: string = '';
 	type AlertType = 'success' | 'error' | 'warning';
 	let alertType: AlertType = 'success';
+	let alertTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Modal system
 	let showDeleteModal = false;
@@ -33,6 +34,10 @@
 		'Follow-ups': {},
 		Strikes: {}
 	};
+
+	// UI state
+	let screenSize: 'small' | 'medium' | 'large' = 'large';
+	let activeTab: 'Follow-ups' | 'Strikes' = 'Follow-ups';
 
 	const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -80,8 +85,7 @@
 		localStorage.setItem('cases', JSON.stringify(casesData));
 		loadCases();
 
-		alertMessage = `Case ${modalCaseNumber} deleted successfully!`;
-		alertType = 'success';
+		showAlert(`Case ${modalCaseNumber} deleted successfully!`, 'success');
 		showDeleteModal = false;
 	}
 
@@ -134,8 +138,50 @@
 		filterCases();
 	}
 
+	function showAlert(message: string, type: AlertType): void {
+		// Clear any existing timeout
+		if (alertTimeout) {
+			clearTimeout(alertTimeout);
+		}
+
+		alertMessage = message;
+		alertType = type;
+
+		// Auto-dismiss after 5 seconds
+		alertTimeout = setTimeout(() => {
+			alertMessage = '';
+		}, 5000);
+	}
+
+	function updateScreenSize(): void {
+		const width = window.innerWidth;
+		if (width < 600) {
+			screenSize = 'small';
+		} else if (width < 1024) {
+			screenSize = 'medium';
+		} else {
+			screenSize = 'large';
+		}
+	}
+
+	function setActiveTab(tab: 'Follow-ups' | 'Strikes'): void {
+		activeTab = tab;
+	}
+
 	onMount(() => {
 		loadCases();
+		updateScreenSize();
+
+		// Add resize listener
+		window.addEventListener('resize', updateScreenSize);
+
+		// Clean up the listener when component is destroyed
+		return () => {
+			window.removeEventListener('resize', updateScreenSize);
+			if (alertTimeout) {
+				clearTimeout(alertTimeout);
+			}
+		};
 	});
 </script>
 
@@ -170,7 +216,11 @@
 		</article>
 	{/if}
 
-	<h2>Case Management</h2>
+	<!-- Header and Navigation -->
+	<div class="header-container">
+		<h2>Case Management</h2>
+		<a href="/" role="button" class="outline back-button">Back to Home</a>
+	</div>
 
 	<div class="search-container">
 		<input
@@ -180,95 +230,156 @@
 			on:input={handleSearchInput}
 		/>
 		{#if searchQuery}
-			<button class="outline" on:click={clearSearch}>Clear</button>
+			<button class="outline clear-button" on:click={clearSearch}>Clear</button>
 		{/if}
 	</div>
 
-	<h3>Follow-up Cases</h3>
-	{#if Object.keys(filteredCasesData['Follow-ups']).length === 0}
-		<p><em>No follow-up cases found{searchQuery ? ' matching your search' : ''}.</em></p>
-	{:else}
-		<div class="overflow-auto">
-			<table>
-				<thead>
-					<tr>
-						<th>Case Number</th>
-						<th>Last Contact</th>
-						<th>Severity</th>
-						<th>1st Follow-up</th>
-						<th>2nd Follow-up</th>
-						<th>3rd Follow-up</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each Object.entries(filteredCasesData['Follow-ups']) as [caseNumber, caseData]}
-						{@const schedule = getSchedule(caseData.day)}
-						<tr>
-							<td>{caseNumber}</td>
-							<td>{caseData.day}</td>
-							<td>{caseData.severity}</td>
-							<td>{schedule.first}</td>
-							<td>{schedule.second}</td>
-							<td>{schedule.third}</td>
-							<td>
-								<button class="secondary" on:click={() => editCase('Follow-ups', caseNumber)}
-									>Edit</button
-								>
-								<button class="contrast" on:click={() => deleteCase('Follow-ups', caseNumber)}
-									>Delete</button
-								>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+	<!-- Mobile/Tablet Tabs -->
+	{#if screenSize !== 'large'}
+		<div class="tabs">
+			<button
+				class={activeTab === 'Follow-ups' ? 'active' : ''}
+				on:click={() => setActiveTab('Follow-ups')}
+			>
+				Follow-up Cases
+			</button>
+			<button
+				class={activeTab === 'Strikes' ? 'active' : ''}
+				on:click={() => setActiveTab('Strikes')}
+			>
+				Strike Cases
+			</button>
 		</div>
 	{/if}
 
-	<h3>Strike Cases</h3>
-	{#if Object.keys(filteredCasesData['Strikes']).length === 0}
-		<p><em>No strike cases found{searchQuery ? ' matching your search' : ''}.</em></p>
-	{:else}
-		<div class="overflow-auto">
-			<table>
-				<thead>
-					<tr>
-						<th>Case Number</th>
-						<th>Last Contact</th>
-						<th>Severity</th>
-						<th>1st Strike</th>
-						<th>2nd Strike</th>
-						<th>3rd Strike</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each Object.entries(filteredCasesData['Strikes']) as [caseNumber, caseData]}
-						{@const schedule = getSchedule(caseData.day)}
-						<tr>
-							<td>{caseNumber}</td>
-							<td>{caseData.day}</td>
-							<td>{caseData.severity}</td>
-							<td>{schedule.first}</td>
-							<td>{schedule.second}</td>
-							<td>{schedule.third} (Close)</td>
-							<td>
-								<button class="secondary" on:click={() => editCase('Strikes', caseNumber)}
-									>Edit</button
-								>
-								<button class="contrast" on:click={() => deleteCase('Strikes', caseNumber)}
-									>Delete</button
-								>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+	<!-- Follow-up Cases -->
+	{#if screenSize === 'large' || activeTab === 'Follow-ups'}
+		<div class="case-section">
+			<h3>Follow-up Cases</h3>
+			{#if Object.keys(filteredCasesData['Follow-ups']).length === 0}
+				<p><em>No follow-up cases found{searchQuery ? ' matching your search' : ''}.</em></p>
+			{:else}
+				<div class="overflow-auto">
+					<table class={screenSize === 'small' ? 'compact-table' : ''}>
+						<thead>
+							<tr>
+								<th>Case Number</th>
+								<th>Last Contact</th>
+								<th>Severity</th>
+								{#if screenSize !== 'small'}
+									<th>1st Follow-up</th>
+									<th>2nd Follow-up</th>
+									<th>3rd Follow-up</th>
+								{/if}
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each Object.entries(filteredCasesData['Follow-ups']) as [caseNumber, caseData]}
+								{@const schedule = getSchedule(caseData.day)}
+								<tr>
+									<td>{caseNumber}</td>
+									<td>{caseData.day}</td>
+									<td>{caseData.severity}</td>
+									{#if screenSize !== 'small'}
+										<td>{schedule.first}</td>
+										<td>{schedule.second}</td>
+										<td>{schedule.third}</td>
+									{/if}
+									<td class="action-column">
+										{#if screenSize === 'small'}
+											<details class="schedule-details">
+												<summary>Schedule</summary>
+												<div class="schedule-content">
+													<p>1st: {schedule.first}</p>
+													<p>2nd: {schedule.second}</p>
+													<p>3rd: {schedule.third}</p>
+												</div>
+											</details>
+										{/if}
+										<div class="action-buttons">
+											<button class="secondary" on:click={() => editCase('Follow-ups', caseNumber)}>
+												{screenSize === 'small' ? '✏️' : 'Edit'}
+											</button>
+											<button
+												class="contrast"
+												on:click={() => deleteCase('Follow-ups', caseNumber)}
+											>
+												{screenSize === 'small' ? '🗑️' : 'Delete'}
+											</button>
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
-	<a href="/" role="button" class="outline">Back to Home</a>
+	<!-- Strike Cases -->
+	{#if screenSize === 'large' || activeTab === 'Strikes'}
+		<div class="case-section">
+			<h3>Strike Cases</h3>
+			{#if Object.keys(filteredCasesData['Strikes']).length === 0}
+				<p><em>No strike cases found{searchQuery ? ' matching your search' : ''}.</em></p>
+			{:else}
+				<div class="overflow-auto">
+					<table class={screenSize === 'small' ? 'compact-table' : ''}>
+						<thead>
+							<tr>
+								<th>Case Number</th>
+								<th>Last Contact</th>
+								<th>Severity</th>
+								{#if screenSize !== 'small'}
+									<th>1st Strike</th>
+									<th>2nd Strike</th>
+									<th>3rd Strike</th>
+								{/if}
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each Object.entries(filteredCasesData['Strikes']) as [caseNumber, caseData]}
+								{@const schedule = getSchedule(caseData.day)}
+								<tr>
+									<td>{caseNumber}</td>
+									<td>{caseData.day}</td>
+									<td>{caseData.severity}</td>
+									{#if screenSize !== 'small'}
+										<td>{schedule.first}</td>
+										<td>{schedule.second}</td>
+										<td>{schedule.third} (Close)</td>
+									{/if}
+									<td class="action-column">
+										{#if screenSize === 'small'}
+											<details class="schedule-details">
+												<summary>Schedule</summary>
+												<div class="schedule-content">
+													<p>1st: {schedule.first}</p>
+													<p>2nd: {schedule.second}</p>
+													<p>3rd: {schedule.third} (Close)</p>
+												</div>
+											</details>
+										{/if}
+										<div class="action-buttons">
+											<button class="secondary" on:click={() => editCase('Strikes', caseNumber)}>
+												{screenSize === 'small' ? '✏️' : 'Edit'}
+											</button>
+											<button class="contrast" on:click={() => deleteCase('Strikes', caseNumber)}>
+												{screenSize === 'small' ? '🗑️' : 'Delete'}
+											</button>
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</div>
+	{/if}
 </section>
 
 <style>
@@ -302,25 +413,152 @@
 		margin-top: 1.5rem;
 	}
 
-	/* Existing Styles */
-	.overflow-auto {
-		overflow-x: auto;
+	/* Header and Layout */
+	.header-container {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
+		margin-bottom: 1.5rem;
 	}
 
+	.header-container h2 {
+		margin: 0;
+	}
+
+	.back-button {
+		margin: 0;
+	}
+
+	/* Tabs for mobile/tablet */
+	.tabs {
+		display: flex;
+		margin-bottom: 1rem;
+		border-bottom: 1px solid var(--muted-border-color);
+	}
+
+	.tabs button {
+		flex: 1;
+		background: none;
+		border: none;
+		padding: 0.75rem;
+		margin: 0;
+		border-radius: 0;
+		font-weight: 600;
+		cursor: pointer;
+		color: var(--muted-color);
+		border-bottom: 3px solid transparent;
+	}
+
+	.tabs button.active {
+		color: var(--primary);
+		border-bottom: 3px solid var(--primary);
+	}
+
+	/* Case sections */
+	.case-section {
+		margin-bottom: 2rem;
+	}
+
+	/* Search and other form elements */
 	.search-container {
 		margin-bottom: 1.5rem;
 		display: flex;
 		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.search-container input {
+		flex: 1;
+		min-width: 200px;
 	}
 
 	.search-container button {
 		margin-bottom: 0;
 	}
 
+	/* Table styles */
+	.overflow-auto {
+		overflow-x: auto;
+		border-radius: var(--border-radius);
+		border: 1px solid var(--muted-border-color);
+	}
+
+	table {
+		margin-bottom: 0;
+	}
+
+	/* Compact tables for small screens */
+	.compact-table th,
+	.compact-table td {
+		padding: 0.5rem;
+		font-size: 0.9rem;
+	}
+
+	.action-column {
+		min-width: 100px;
+	}
+
+	.action-buttons {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	/* Schedule dropdown for mobile */
+	.schedule-details {
+		margin-bottom: 0.5rem;
+	}
+
+	.schedule-details summary {
+		cursor: pointer;
+		color: var(--primary);
+		font-weight: 500;
+	}
+
+	.schedule-content {
+		background: var(--card-sectionning-background-color);
+		padding: 0.5rem;
+		border-radius: var(--border-radius);
+		margin-top: 0.25rem;
+	}
+
+	.schedule-content p {
+		margin: 0.25rem 0;
+	}
+
+	/* Notification/Alert styles */
 	.notification {
 		margin-bottom: 1rem;
 		position: relative;
 		padding-right: 2.5rem;
+		animation: fadeIn 0.3s;
+	}
+
+	.notification.success {
+		background-color: var(--form-element-valid-focus-color);
+		border-color: var(--form-element-valid-border-color);
+	}
+
+	.notification.error {
+		background-color: var(--form-element-invalid-focus-color);
+		border-color: var(--form-element-invalid-border-color);
+	}
+
+	.notification.warning {
+		background-color: #fff3cd;
+		border-color: #ffecb5;
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+			transform: translateY(-10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 
 	.close {
@@ -338,4 +576,6 @@
 		font-size: 1.25rem;
 		line-height: 1;
 	}
+
+	/* Media queries already handled by screenSize reactive variable */
 </style>
