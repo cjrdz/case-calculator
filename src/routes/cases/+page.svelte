@@ -1,12 +1,15 @@
 <script lang="ts">
+	// Case Management Page
 	import { onMount } from 'svelte';
 
+	// Case data structure
 	interface Case {
 		type: 'Follow-ups' | 'Strikes';
 		day: string;
 		severity: 'B' | 'C';
 	}
 
+	// Cases data structure
 	interface CasesData {
 		'Follow-ups': Record<string, Case>;
 		Strikes: Record<string, Case>;
@@ -29,6 +32,7 @@
 		Strikes: {}
 	};
 
+	// Search functionality
 	let searchQuery = '';
 	let filteredCasesData: CasesData = {
 		'Follow-ups': {},
@@ -39,8 +43,10 @@
 	let screenSize: 'small' | 'medium' | 'large' = 'large';
 	let activeTab: 'Follow-ups' | 'Strikes' = 'Follow-ups';
 
+	// Load cases from localStorage on component mount
 	const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
+	// Function to calculate follow-up dates based on the last contact day
 	function getSchedule(startDay: string): { first: string; second: string; third: string } {
 		const weekdayIndices: Record<string, number> = {
 			Monday: 0,
@@ -50,11 +56,13 @@
 			Friday: 4
 		};
 
+		// calculate the indices for the follow-up days
 		const startDayIndex = weekdayIndices[startDay];
 		const firstFollowUpIndex = (startDayIndex + 2) % 5;
 		const secondFollowUpIndex = (firstFollowUpIndex + 2) % 5;
 		const thirdFollowUpIndex = (secondFollowUpIndex + 2) % 5;
 
+		// return the follow-up days
 		return {
 			first: weekdays[firstFollowUpIndex],
 			second: weekdays[secondFollowUpIndex],
@@ -62,6 +70,7 @@
 		};
 	}
 
+	// Function to load cases from localStorage
 	function loadCases(): void {
 		const storedCases = localStorage.getItem('cases');
 		if (storedCases) {
@@ -70,16 +79,19 @@
 		}
 	}
 
+	// Function to edit a case
 	function editCase(caseType: 'Follow-ups' | 'Strikes', caseNumber: string): void {
 		window.location.href = `/?edit=${caseNumber}`;
 	}
 
+	// Function to delete a case
 	function deleteCase(caseType: 'Follow-ups' | 'Strikes', caseNumber: string): void {
 		modalCaseNumber = caseNumber;
 		modalCaseType = caseType;
 		showDeleteModal = true;
 	}
 
+	// Function to confirm deletion of a case
 	function confirmDelete(): void {
 		delete casesData[modalCaseType][modalCaseNumber];
 		localStorage.setItem('cases', JSON.stringify(casesData));
@@ -89,18 +101,22 @@
 		showDeleteModal = false;
 	}
 
+	// Function to close the modal
 	function closeModal(): void {
 		showDeleteModal = false;
 	}
 
+	// Function to filter cases based on search query
 	function filterCases(): void {
 		if (!searchQuery.trim()) {
 			filteredCasesData = { ...casesData };
 			return;
 		}
 
+		// Convert search query to lowercase and trim whitespace
 		const query = searchQuery.toLowerCase().trim();
 
+		// Create a new object to store filtered cases
 		const filteredFollowUps: Record<string, Case> = {};
 		Object.entries(casesData['Follow-ups']).forEach(([caseNumber, caseData]) => {
 			if (
@@ -112,6 +128,7 @@
 			}
 		});
 
+		// Filter strike cases similarly
 		const filteredStrikes: Record<string, Case> = {};
 		Object.entries(casesData['Strikes']).forEach(([caseNumber, caseData]) => {
 			if (
@@ -123,21 +140,25 @@
 			}
 		});
 
+		// Update the filtered cases data
 		filteredCasesData = {
 			'Follow-ups': filteredFollowUps,
 			Strikes: filteredStrikes
 		};
 	}
 
+	// Function to handle search input changes
 	function handleSearchInput(): void {
 		filterCases();
 	}
 
+	// Function to clear the search input
 	function clearSearch(): void {
 		searchQuery = '';
 		filterCases();
 	}
 
+	// Function to show alert messages
 	function showAlert(message: string, type: AlertType): void {
 		// Clear any existing timeout
 		if (alertTimeout) {
@@ -153,6 +174,7 @@
 		}, 5000);
 	}
 
+	// Function to update screen size
 	function updateScreenSize(): void {
 		const width = window.innerWidth;
 		if (width < 600) {
@@ -164,10 +186,12 @@
 		}
 	}
 
+	// Function to set the active tab for mobile/tablet view
 	function setActiveTab(tab: 'Follow-ups' | 'Strikes'): void {
 		activeTab = tab;
 	}
 
+	// Load cases and set screen size on component mount
 	onMount(() => {
 		loadCases();
 		updateScreenSize();
@@ -222,6 +246,7 @@
 		<a href="/" role="button" class="outline back-button">Back to Home</a>
 	</div>
 
+	<!-- Search bar integration -->
 	<div class="search-container">
 		<input
 			type="search"
@@ -382,6 +407,7 @@
 	{/if}
 </section>
 
+<!-- Style for case management page -->
 <style>
 	/* Modal Styles */
 	.modal-overlay {

@@ -168,6 +168,7 @@
 		</article>
 	{/if}
 
+	<!-- Main home form -->
 	<h2>Create or Update Cases</h2>
 
 	<form on:submit|preventDefault>
